@@ -2,19 +2,21 @@ from src.ingestion.pdf_loader import extract_text_from_pdf
 from src.text_chunker import chunk_text
 from src.embeddings import generate_embeddings
 from src.vector_store import create_faiss_index
+from src.local_llm import LocalLLM
+
 import numpy as np
 
 file_path = "sample.pdf"
 
-# Extract page-wise data
+# 1️⃣ Extract page-wise data
 pages = extract_text_from_pdf(file_path)
 
 all_chunks = []
 chunk_metadata = []
 
-# Chunk each page
+# 2️⃣ Chunk each page
 for page in pages:
-    chunks = chunk_text(page["text"], chunk_size=1500)  # bigger chunk
+    chunks = chunk_text(page["text"], chunk_size=1500)
 
     for chunk in chunks:
         all_chunks.append(chunk)
@@ -23,24 +25,33 @@ for page in pages:
             "text": chunk
         })
 
-# Generate embeddings
+# 3️⃣ Generate embeddings
 embeddings = generate_embeddings(all_chunks)
 
-# Create FAISS index
+# 4️⃣ Create FAISS index
 index = create_faiss_index(embeddings)
 
-# Ask user question
+# 5️⃣ Ask question
 query = input("Ask your question: ")
 
 query_embedding = generate_embeddings([query])
 
-# Top-K retrieval
-k = 3  # retrieve top 3 chunks
+# 6️⃣ Retrieve Top-K chunks
+k = 3
 distances, indices = index.search(np.array(query_embedding), k)
 
-print("\nAnswer found (Top {} chunks):\n".format(k))
+retrieved_context = ""
+retrieved_pages = set()
 
 for idx in indices[0]:
-    print("📄 Page:", chunk_metadata[idx]["page"])
-    print(chunk_metadata[idx]["text"])
-    print("\n---\n")
+    retrieved_context += chunk_metadata[idx]["text"] + "\n\n"
+    retrieved_pages.add(chunk_metadata[idx]["page"])
+
+# 7️⃣ Send to Local LLM
+llm = LocalLLM()
+final_answer = llm.generate(retrieved_context, query)
+
+# 8️⃣ Display Answer with Citations
+print("\n📄 Source Pages:", sorted(retrieved_pages))
+print("\n🧠 Final Answer:\n")
+print(final_answer)
