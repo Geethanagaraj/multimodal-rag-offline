@@ -2,3 +2,4 @@ pymupdf
 sentence-transformers
 faiss-cpu
 gpt4all
+numpy
